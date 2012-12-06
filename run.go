@@ -1,11 +1,11 @@
 package run
 
 import (
+	"log"
 	"bufio"
 	"io"
-	"os"
 	"os/exec"
-	"syscall"
+	"sync"
 )
 
 // Run runs the command and returns a channel of output lines, errors and result of cmd.Wait
@@ -32,36 +32,32 @@ func Run(cmd *exec.Cmd) (
 		return
 	}
 
-	go tailReader(bufio.NewReader(stdout), lines, errors)
-	go tailReader(bufio.NewReader(stderr), lines, errors)
+	var wg sync.WaitGroup
+	go tailReader(bufio.NewReader(stdout), lines, errors, wg)
+	go tailReader(bufio.NewReader(stderr), lines, errors, wg)
 
 	go func() {
+		wg.Wait()
 		resultCh <- cmd.Wait()
 	}()
 
 	return
 }
 
-func tailReader(r *bufio.Reader, ch chan string, errCh chan error) {
+func tailReader(
+	r *bufio.Reader, ch chan string, errCh chan error,
+	wg sync.WaitGroup) {
+	defer wg.Done()
+	wg.Add(1)
+
 	for {
 		line, _, err := r.ReadLine()
 		if err != nil {
-			// log.Printf("** %T | %#v | %v\n", err, err, err)
-			
-			// Apparently EOF and EBADF are the two errors we must
-			// safely ignore when reading from a Stdout or Stderr pipe
-			// of a exec.Command - because they seem to be returned by
-			// io.Reader when the command exits. Other errors are
-			// considered abnormal, so we return them to the caller
-			// via errCh.
-			if err == io.EOF {
-				break
+			log.Printf("** %T | %#v | %v\n", err, err, err)
+
+			if err != io.EOF {
+				errCh <- err
 			}
-			if e, ok := err.(*os.PathError); ok && e.Err == syscall.EBADF {
-				break
-			}
-			// unknown error
-			errCh <- err
 			break
 		}
 		ch <- string(line)
