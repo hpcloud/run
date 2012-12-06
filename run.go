@@ -29,6 +29,7 @@ func Run(cmd *exec.Cmd, lines chan string) (error, error) {
 	go tailReader(bufio.NewReader(stdout), lines, errCh, &wg)
 	go tailReader(bufio.NewReader(stderr), lines, errCh, &wg)
 	wg.Wait()
+	close(lines)
 	select {
 		case err := <-errCh:
 		return nil, err
