@@ -8,43 +8,33 @@ import (
 )
 
 // Run runs the command and returns a channel of output lines, errors and result of cmd.Wait
-func Run(cmd *exec.Cmd) (
-	lines chan string, errors chan error, resultCh chan error) {
-	lines = make(chan string)
-	errors = make(chan error, 1)
-	resultCh = make(chan error, 1)
-
+func Run(cmd *exec.Cmd, lines chan string) (error, error) {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		errors <- err
-		close(lines)
-		return
+		return nil, err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		errors <- err
-		close(lines)
-		return
+		return nil, err
 	}
 
 	err = cmd.Start()
 	if err != nil {
-		errors <- err
-		close(lines)
-		return
+		return nil, err
 	}
 
-	go func() {
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go tailReader(bufio.NewReader(stdout), lines, errors, &wg)
-		go tailReader(bufio.NewReader(stderr), lines, errors, &wg)
-		wg.Wait()
-		close(lines)
-		resultCh <- cmd.Wait()
-	}()
-
-	return
+	var wg sync.WaitGroup
+	errCh := make(chan error, 2)
+	wg.Add(2)
+	go tailReader(bufio.NewReader(stdout), lines, errCh, &wg)
+	go tailReader(bufio.NewReader(stderr), lines, errCh, &wg)
+	wg.Wait()
+	select {
+		case err := <-errCh:
+		return nil, err
+		default:
+	}
+	return cmd.Wait(), nil
 }
 
 func tailReader(
