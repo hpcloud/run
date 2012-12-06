@@ -2,8 +2,8 @@ package run
 
 import (
 	"fmt"
-	"testing"
 	"os/exec"
+	"testing"
 )
 
 func TestSimple(t *testing.T) {
@@ -15,7 +15,7 @@ func TestSimple(t *testing.T) {
 	go func() {
 		for {
 			select {
-			case line:= <-lines:
+			case line := <-lines:
 				fmt.Println("LINE: ", line)
 			case err := <-errors:
 				t.Fatal(err)
@@ -28,5 +28,5 @@ func TestSimple(t *testing.T) {
 
 	err := <-resultCh
 	done <- true
-	fmt.Printf("Command exit value: %s", err)
+	fmt.Printf("Command exit value: %s\n", err)
 }
