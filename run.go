@@ -1,7 +1,6 @@
 package run
 
 import (
-	"log"
 	"bufio"
 	"io"
 	"os/exec"
@@ -32,11 +31,11 @@ func Run(cmd *exec.Cmd) (
 		return
 	}
 
-	var wg sync.WaitGroup
-	go tailReader(bufio.NewReader(stdout), lines, errors, wg)
-	go tailReader(bufio.NewReader(stderr), lines, errors, wg)
-
 	go func() {
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go tailReader(bufio.NewReader(stdout), lines, errors, &wg)
+		go tailReader(bufio.NewReader(stderr), lines, errors, &wg)
 		wg.Wait()
 		resultCh <- cmd.Wait()
 	}()
@@ -46,14 +45,12 @@ func Run(cmd *exec.Cmd) (
 
 func tailReader(
 	r *bufio.Reader, ch chan string, errCh chan error,
-	wg sync.WaitGroup) {
+	wg *sync.WaitGroup) {
 	defer wg.Done()
-	wg.Add(1)
-
 	for {
 		line, _, err := r.ReadLine()
 		if err != nil {
-			log.Printf("** %T | %#v | %v\n", err, err, err)
+			// log.Printf("** %T | %#v | %v\n", err, err, err)
 
 			if err != io.EOF {
 				errCh <- err
