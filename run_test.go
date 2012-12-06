@@ -11,22 +11,15 @@ func TestSimple(t *testing.T) {
 
 	lines, errors, resultCh := Run(cmd)
 
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case line := <-lines:
-				fmt.Println("LINE: ", line)
-			case err := <-errors:
-				t.Fatal(err)
-				break
-			case <-done:
-				break
-			}
-		}
-	}()
+	for line := range lines {
+		fmt.Println("LINE: ", line)
+	}
+	select {
+	case err := <-errors:
+		t.Fatal(err)
+	default:
+	}
 
 	err := <-resultCh
-	done <- true
 	fmt.Printf("Command exit value: %s\n", err)
 }

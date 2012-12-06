@@ -12,22 +12,25 @@ func Run(cmd *exec.Cmd) (
 	lines chan string, errors chan error, resultCh chan error) {
 	lines = make(chan string)
 	errors = make(chan error, 1)
-	resultCh = make(chan error)
+	resultCh = make(chan error, 1)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		errors <- err
+		close(lines)
 		return
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		errors <- err
+		close(lines)
 		return
 	}
 
 	err = cmd.Start()
 	if err != nil {
 		errors <- err
+		close(lines)
 		return
 	}
 
@@ -37,6 +40,7 @@ func Run(cmd *exec.Cmd) (
 		go tailReader(bufio.NewReader(stdout), lines, errors, &wg)
 		go tailReader(bufio.NewReader(stderr), lines, errors, &wg)
 		wg.Wait()
+		close(lines)
 		resultCh <- cmd.Wait()
 	}()
 
